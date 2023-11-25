@@ -133,11 +133,7 @@ def compare(old,new):
 def uploadRaces(raceArray):
 
     # Connect to DynamoDB database
-    dynamodb = boto3.resource(
-        'dynamodb',
-        region_name="us-east-1",
-        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
+    dynamodb = boto3.resource('dynamodb')
 
     # Get NYRR Races Table
     table = dynamodb.Table('nyrr-races')
@@ -160,11 +156,7 @@ def downloadRaces():
     races = []
 
     # Connect to DynamoDB database
-    dynamodb = boto3.resource(
-        'dynamodb',
-        region_name="us-east-1",
-        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
+    dynamodb = boto3.resource('dynamodb')
 
     # Get NYRR Races Table
     table = dynamodb.Table('nyrr-races')
@@ -182,11 +174,7 @@ def downloadRaces():
 def notify(subject, message):
 
     # Connect to SNS Client
-    sns = boto3.client(
-        'sns',
-        region_name=os.environ.get("AWS_REGION"),
-        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
+    sns = boto3.client('sns')
 
     # Publish Subject & Message to NYRR Races Topic
     response = sns.publish(
@@ -194,29 +182,3 @@ def notify(subject, message):
         Subject=subject,
         Message=message
     )
-
-# Take environment variables from .env
-load_dotenv()
-
-# Pull Previous Race Info from Database
-oldRaceList = downloadRaces()
-
-# Scrape Current Race Info from NYRR Site
-newRaceList = scrape()
-
-# Compare Race Lists
-changeList = compare(oldRaceList, newRaceList)
-
-# If identical, do nothing
-if (len(changeList) == 0):
-    print("No changes to report")
-
-# If there are changes, overwrite database
-else:
-
-    uploadRaces(newRaceList)
-    for change in changeList:
-        print(change['subject'] + " - " + change['message'])
-        print()
-
-        notify(change['subject'], change['message'])
