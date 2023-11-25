@@ -62,62 +62,71 @@ def compare(old,new):
 
                 # Compare Race Date
                 if (newRace['date'] != oldRace['date']):
-                    
-                    changeString = ""
-                    changeString += oldRace['title']
-                    changeString += ": Date changed from "
-                    changeString += oldRace['date']
-                    changeString += " to "
-                    changeString += newRace['date']
-                    changes.append(changeString)
+                    change = {}
+                    change['subject'] = "Race Date Change"
+                    change['message'] = ""
+                    change['message'] += oldRace['title']
+                    change['message'] += ": Date changed from "
+                    change['message'] += oldRace['date']
+                    change['message'] += " to "
+                    change['message'] += newRace['date']
+                    changes.append(change)
 
                 # Compare Race Time
                 if (newRace['time'] != oldRace['time']):
-                    changeString = ""
-                    changeString += oldRace['title']
-                    changeString += ": Time changed from "
-                    changeString += oldRace['time']
-                    changeString += " to "
-                    changeString += newRace['time']
-                    changes.append(changeString)
+                    change = {}
+                    change['subject'] = "Race Time Change"
+                    change['message'] = ""
+                    change['message'] += oldRace['title']
+                    change['message'] += ": Time changed from "
+                    change['message'] += oldRace['time']
+                    change['message'] += " to "
+                    change['message'] += newRace['time']
+                    changes.append(change)
 
                 # Compare Race Location
                 if (newRace['location'] != oldRace['location']):
-                    changeString = ""
-                    changeString += oldRace['title']
-                    changeString += ": Location changed from "
-                    changeString += oldRace['location']
-                    changeString += " to "
-                    changeString += newRace['location']
-                    changes.append(changeString)
+                    change = {}
+                    change['subject'] = "Race Location Change"
+                    change['message'] = ""
+                    change['message'] += oldRace['title']
+                    change['message'] += ": Location changed from "
+                    change['message'] += oldRace['location']
+                    change['message'] += " to "
+                    change['message'] += newRace['location']
+                    changes.append(change)
 
                 # Compare Race Status
                 if (newRace['status'] != oldRace['status']):
-                    changeString = ""
-                    changeString += oldRace['title']
-                    changeString += ": Status changed from "
-                    changeString += oldRace['status']
-                    changeString += " to "
-                    changeString += newRace['status']
-                    changes.append(changeString)
+                    change = {}
+                    change['subject'] = "Race Status Change"
+                    change['message'] = ""
+                    change['message'] += oldRace['title']
+                    change['message'] += ": Status changed from "
+                    change['message'] += oldRace['status']
+                    change['message'] += " to "
+                    change['message'] += newRace['status']
+                    changes.append(change)
 
         # New Race Found          
         if (not(raceExists)):
-            changeString = ""
-            changeString += "New Race: "
-            changeString += newRace['title']
-            changeString += " on "
-            changeString += newRace['date']
-            changeString += " at "
-            changeString += newRace['time']
-            changeString += " in "
-            changeString += newRace['location']
-            changeString += " ["
-            changeString += newRace['status']
-            changeString += "]"
-            changes.append(changeString)
+            change = {}
+            change['subject'] = "New Race Posted"
+            change['message'] = ""
+            change['message'] += "New Race: "
+            change['message'] += newRace['title']
+            change['message'] += " on "
+            change['message'] += newRace['date']
+            change['message'] += " at "
+            change['message'] += newRace['time']
+            change['message'] += " in "
+            change['message'] += newRace['location']
+            change['message'] += " ["
+            change['message'] += newRace['status']
+            change['message'] += "]"
+            changes.append(change)
 
-    # Return array of change strings
+    # Return array of changes
     return(changes)
 
 
@@ -133,18 +142,16 @@ def uploadRaces(raceArray):
     # Get NYRR Races Table
     table = dynamodb.Table('nyrr-races')
 
-    # Loop through each race in array
+    # Scan for all items in database
+    items = table.scan()
+
+    # Remove all races withing database
+    if 'Items' in items.keys():
+        for race in items['Items']:
+            table.delete_item( Key={ 'raceID' : race['raceID'] } )
+
+    # Re-add all races to database
     for race in raceArray:
-
-        # Attempt to find item by raceID in database
-        item = table.get_item( Key={ 'raceID' : race['raceID'] })
-
-        # If raceID already exists, skip
-        if 'Item' in item.keys():
-            continue
-
-        # If raceID not found, add race to database
-        else:
             table.put_item( Item = race )
 
 def downloadRaces():
@@ -172,14 +179,44 @@ def downloadRaces():
 
     return(races)
 
+def notify(subject, message):
+
+    # Connect to SNS Client
+    sns = boto3.client(
+        'sns',
+        region_name=os.environ.get("AWS_REGION"),
+        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
+
+    # Publish Subject & Message to NYRR Races Topic
+    response = sns.publish(
+        TopicArn=os.environ.get("NYRR_TOPIC_ARN"),
+        Subject=subject,
+        Message=message
+    )
+
 # Take environment variables from .env
 load_dotenv()
 
+# Pull Previous Race Info from Database
 oldRaceList = downloadRaces()
-newRaceList = scrape()
-changeList = compare(oldRaceList, newRaceList)
-uploadRaces(newRaceList)
 
-for change in changeList:
-    print(change)
-    print()
+# Scrape Current Race Info from NYRR Site
+newRaceList = scrape()
+
+# Compare Race Lists
+changeList = compare(oldRaceList, newRaceList)
+
+# If identical, do nothing
+if (len(changeList) == 0):
+    print("No changes to report")
+
+# If there are changes, overwrite database
+else:
+
+    uploadRaces(newRaceList)
+    for change in changeList:
+        print(change['subject'] + " - " + change['message'])
+        print()
+
+        notify(change['subject'], change['message'])
