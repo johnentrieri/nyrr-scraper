@@ -135,7 +135,7 @@ def uploadRaces(raceArray):
     # Connect to DynamoDB database
     dynamodb = boto3.resource(
         'dynamodb',
-        region_name="us-east-1",
+        region_name=os.environ.get("AWS_REGION"),
         aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
         aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
 
@@ -162,7 +162,7 @@ def downloadRaces():
     # Connect to DynamoDB database
     dynamodb = boto3.resource(
         'dynamodb',
-        region_name="us-east-1",
+        region_name=os.environ.get("AWS_REGION"),
         aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
         aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"))
 
