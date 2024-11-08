@@ -11,7 +11,7 @@ def scrape():
     races = []
 
     # GET Request to NYRR 2024 Race Calendar
-    r = requests.get('https://www.nyrr.org/fullraceyearindex?year=2024')
+    r = requests.get('https://www.nyrr.org/fullraceyearindex?year=2025')
 
     # Exit if GET request failed
     if (r.status_code != 200):
